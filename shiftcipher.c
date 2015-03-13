@@ -9,9 +9,9 @@
 static char *argv0; /* required by usage() */
 
 #define NELEMS(array) (sizeof(array)/sizeof(array[0]))
-#define INIT_SIZE 1024
-#define EN_ALPH_SIZE 26
-#define EN_INDEX 0.0654967 /* English index of coincidence */
+#define INIT_SIZE     1024
+#define EN_ALPH_SIZE  26
+#define EN_INDEX      0.0654967 /* English index of coincidence */
 
 /* Function prototypes */
 static void decrypt(const char *message);
@@ -29,16 +29,17 @@ static void die(const char *errstr, ...);
 static void usage(void);
 
 /* Globals */
+/* frequencies taken from norvig.com/mayzner.html */
 const double en_letterfreq[] = {
-	/* a      b       c       d       e        f       g       h       i */
-	8.167,  1.492,  2.782,  4.253,  12.702,  2.228,  2.015,  6.094,  6.966,
-	/* j      k       l       m       n        o       p       q       r */
-	0.153,  0.772,  4.025,  2.406,   6.749,  7.507,  1.929,  0.095,  5.987,
-	/* s      t       u       v       w        x       y       z         */
-	6.327,  9.056,  2.758,  0.978,   2.360,  0.150,   1.974,  0.074
+	/* a     b       c       d       e       f       g        h      i */
+	8.04,   1.48,   3.34,   3.82,  12.49,   2.40,   1.87,   5.05,   7.57,
+	/* j     k       l       m        n      o       p        q      r */
+	0.16,   0.54,   4.07,   2.51,   7.23,   7.64,   2.14,   0.12,   6.28,
+	/* s     t       u       v        w      x       y       z */
+	6.51,   9.28,   2.73,   1.05,   1.68,   0.23,   1.66,   0.09
 };
-static char *bestguess; /* Most probable correct decryption */
-static char *plaintext; /* where dec() stores the deciphered letters */
+static char   *bestguess; /* Most probable correct decryption */
+static char   *plaintext; /* where dec() stores the deciphered letters */
 static double freqcount[EN_ALPH_SIZE];
 static double mindiff = INFINITY;
 
@@ -149,8 +150,8 @@ analyzefrequencies(void){
 	double diff = EN_INDEX - ic;
 	if(diff < mindiff){
 		char *temp;
-		mindiff = diff;
-		temp = bestguess;
+		mindiff   = diff;
+		temp      = bestguess;
 		bestguess = plaintext;
 		plaintext = temp;
 	}
