@@ -3,8 +3,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-#include "arg.h"
+#include <string.h>
 
 static char *argv0; /* required by usage() */
 
@@ -27,10 +26,16 @@ static void validatekey(int key);
 static int  mod(int number, int modulus);
 static void die(const char *errstr, ...);
 static void usage(void);
+static int getinput(char **s, FILE *stream);
 
 /* Globals */
+static char   *bestguess; /* most likely correct decryption */
+static char   *plaintext; /* where dec() stores the deciphered letters */
+static double freqcount[EN_ALPH_SIZE];
+static double mindiff = INFINITY;
+
 /* frequencies taken from norvig.com/mayzner.html */
-const double en_letterfreq[] = {
+static const double en_letterfreq[] = {
 	/* a     b       c       d       e       f       g        h      i */
 	8.04,   1.48,   3.34,   3.82,  12.49,   2.40,   1.87,   5.05,   7.57,
 	/* j     k       l       m        n      o       p        q      r */
@@ -38,57 +43,6 @@ const double en_letterfreq[] = {
 	/* s     t       u       v        w      x       y       z */
 	6.51,   9.28,   2.73,   1.05,   1.68,   0.23,   1.66,   0.09
 };
-static char   *bestguess; /* Most probable correct decryption */
-static char   *plaintext; /* where dec() stores the deciphered letters */
-static double freqcount[EN_ALPH_SIZE];
-static double mindiff = INFINITY;
-
-int
-main(int argc, char *argv[]){
-	unsigned long key;
-	char fixme[INIT_SIZE] = {0}; /* TODO malloc for arbitrary size string! */
-
-	argv0 = *argv; /* Keep program name for usage() */
-
-	if(argc < 2)
-		usage();
-
-	fgets(fixme, INIT_SIZE, stdin);
-
-	plaintext = malloc(INIT_SIZE);
-	bestguess = malloc(INIT_SIZE);
-	ARGBEGIN{
-	case 'd':
-		if(argc > 1){
-			key = strtoul(argv[1], NULL, 10);
-			validatekey(key);
-			dec(fixme, key);
-			puts(plaintext);
-		} else {
-			decrypt(fixme);
-			puts(bestguess);
-		}
-		break;
-	case 'b':
-		bruteforce(fixme);
-		break;
-	case 'e':
-		if(argc > 1){
-			key = strtoul(argv[1], NULL, 10);
-			validatekey(key);
-			encrypt(fixme, key);
-			puts(fixme);
-		}
-		break;
-	default:
-		usage();
-	}ARGEND;
-
-	free(plaintext);
-	free(bestguess);
-
-	return EXIT_SUCCESS;
-}
 
 void
 bruteforce(char *m){
@@ -112,6 +66,7 @@ encrypt(char *message, int key){
 	}
 	*message = '\0'; /* erase \n if any */
 }
+
 void
 validatekey(int key){
 	if(key <= 0 || key >= EN_ALPH_SIZE)
@@ -210,4 +165,76 @@ die(const char *errstr, ...) {
 	vfprintf(stderr, errstr, ap);
 	va_end(ap);
 	exit(EXIT_FAILURE);
+}
+
+int
+getinput(char **s, FILE *stream){
+	int size = INIT_SIZE/2;
+	int read = 0;
+	*s = NULL;
+
+	for(;;){
+		size *= 2;
+		*s = realloc(*s, size);
+		if(fgets(*s + read, INIT_SIZE, stream) == NULL)
+			break;
+		read += strlen(*s + read);
+		if((*s)[read - 1] == '\n')
+			break;
+	}
+	return read;
+}
+
+int
+main(int argc, char *argv[]){
+	unsigned long key;
+	char *message;
+	int msgsize;
+	char *end;
+
+	argv0 = *argv; /* Keep program name for usage() */
+
+	if(argc < 2)
+		usage();
+
+	if(strcmp("-e", argv[1]) == 0){
+		if(argc > 2){
+			key = strtoul(argv[2], &end, 10);
+			if(*end != '\0')
+				usage();
+			getinput(&message, stdin);
+			validatekey(key);
+			encrypt(message, key);
+			puts(message);
+			return EXIT_SUCCESS;
+		}
+		usage();
+	}
+
+	if(strcmp("-d", argv[1]) == 0){
+		if(argc > 2){
+			key = strtoul(argv[2], &end, 10);
+			if(*end != '\0')
+				usage();
+			validatekey(key);
+			msgsize = getinput(&message, stdin);
+			plaintext = malloc(msgsize+1);
+			dec(message, key);
+			puts(plaintext);
+		} else {
+			msgsize = getinput(&message, stdin);
+			bestguess = malloc(msgsize+1);
+			plaintext = malloc(msgsize+1);
+			decrypt(message);
+			puts(bestguess);
+		}
+	} else if(strcmp("-b", argv[1]) == 0){
+		msgsize = getinput(&message, stdin);
+		plaintext = malloc(msgsize+1);
+		bruteforce(message);
+	} else {
+		usage();
+	}
+
+	return EXIT_SUCCESS;
 }

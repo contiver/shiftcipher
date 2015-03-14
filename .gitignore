@@ -1,4 +1,6 @@
 shiftcipher
+output
+test.txt
 
 # Object files
 *.o
