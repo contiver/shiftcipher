@@ -1,8 +1,7 @@
-shiftcipher
+Shiftcipher
 ===========
-Shift cipher encryptor and decryptor, mainly for learning purposes.
-It currently supports only the English language (expects letters [A-Za-z]), and
-has automatic decryption (based on letter frequency analysis) only for English.
+Shift cipher encryptor and decryptor for the English language, mainly for
+learning purposes.
 
 Build
 -----
