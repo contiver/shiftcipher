@@ -5,7 +5,7 @@
 
 CC      = gcc
 LDFLAGS = -s
-CFLAGS  = -std=c99 -pedantic -O0
+CFLAGS  = -std=c99 -pedantic -Ofast
 
 #CFLAGS = -std=c99 -pedantic -Wall -Wextra -Wunused-macros \
 	-Wno-missing-braces -Wno-missing-field-initializers -Wformat=2 \
