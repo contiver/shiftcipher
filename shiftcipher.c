@@ -10,28 +10,27 @@
 #define EN_INDEX      0.0654967 /* English index of coincidence */
 
 /* Function prototypes */
-static void  analyzefrequencies(void);
-static void  bruteforce(char *m);
-static void  dec(const char *m, int key);
-static void  decrypt(const char *message);
-static void  die(const char *errstr, ...);
-static void  encrypt(char *message, int key);
-static int   getinput(char **s, FILE *stream);
-static void  letterfreq(const char *m);
-static int   mod(int number, int modulus);
-static char  shiftbackward(char c, int key);
-static char  shiftforward(char c, int key);
-static void  usage(void);
-static void  validatekey(int key);
-static void *xmalloc(size_t size);
-static void *xrealloc(void *p, size_t len);
+static int    analyzefrequencies(const double *freqcount);
+static void   bruteforce(const char *m);
+static void   dec(const char *m, int key);
+static void   decrypt(const char *message);
+static void   die(const char *errstr, ...);
+static void   encrypt(char *message, int key);
+static int    getinput(char **s, FILE *stream);
+static double *letterfreq(const char *m);
+static int    mod(int number, int modulus);
+static char   shiftbackward(char c, int key);
+static char   shiftforward(char c, int key);
+static void   usage(void);
+static void   validatekey(int key);
+static void   *xcalloc(size_t nmemb, size_t size);
+static void   *xmalloc(size_t size);
+static void   *xrealloc(void *p, size_t len);
 
 /* Globals */
 static char   *argv0;       /* required by usage() */
 static char   *plaintext;   /* where dec() stores the decrypted letters */
-static int     probablekey; /* key guessed by frequency analysis */
-static double  freqcount[EN_ALPH_SIZE] = {0};
-static double  mindiff = INFINITY;
+static double mindiff = INFINITY;
 
 /* frequencies taken from norvig.com/mayzner.html and divided by 100 */
 static const double en_letterprob[] = {
@@ -44,7 +43,7 @@ static const double en_letterprob[] = {
 };
 
 void
-bruteforce(char *m){
+bruteforce(const char *m){
 	for(int k = 1; k < EN_ALPH_SIZE; k++){
 		dec(m, k);
 		puts(plaintext);
@@ -54,30 +53,52 @@ bruteforce(char *m){
 void
 encrypt(char *message, int key){
 	validatekey(key);
+
 	for(; *message != '\0' && *message != '\n'; message++){
 		*message = shiftforward(*message, key);
 	}
-	*message = '\0'; /* erase \n if any */
+
+	*message = '\0'; /* erase '\n' if any */
 }
 
 void
 validatekey(int key){
 	if(key < 0 || key >= EN_ALPH_SIZE)
 		die("Error: key %d invalid. The key must be in the range [0,%d]\n",
-				key, EN_ALPH_SIZE);
+				key, EN_ALPH_SIZE - 1);
 }
 
 void
 decrypt(const char *message){
-	letterfreq(message);
-	analyzefrequencies();
+	double *freqcount = letterfreq(message);
+	int probablekey = analyzefrequencies(freqcount);
+	free(freqcount);
 	dec(message, probablekey);
 }
 
-void
-analyzefrequencies(void){
+double *
+letterfreq(const char *m){
+	int i;
+	int msgsize = 0;
+	double  *freqcount = xcalloc(EN_ALPH_SIZE, sizeof(*freqcount));
+
+	for(; *m != '\0' && *m != '\n'; m++){
+		i = isupper(*m) ? *m - 'A' : *m - 'a';
+		freqcount[i]++;
+		msgsize++;
+	}
+
+	for(i = 0; i < EN_ALPH_SIZE; i++)
+		freqcount[i] /= msgsize;
+
+	return freqcount;
+}
+
+int
+analyzefrequencies(const double *freqcount){
 	int i, k;
-	double ic; /* Index of coincidence */
+	double ic;       /* Index of coincidence */
+	int probablekey; /* key guessed by frequency analysis */
 
 	for(k = 1; k < EN_ALPH_SIZE; k++){
 		ic = 0.0;
@@ -90,6 +111,8 @@ analyzefrequencies(void){
 			probablekey = k;
 		}
 	}
+
+	return probablekey;
 }
 
 void
@@ -100,20 +123,6 @@ dec(const char *m, int key){
 		*cp++ = shiftbackward(*m, key);
 	}
 	*cp = '\0';
-}
-
-void
-letterfreq(const char *m){
-	int i;
-	int msgsize = 0;
-
-	for(; *m != '\0' && *m != '\n'; m++){
-		i = isupper(*m) ? *m - 'A' : *m - 'a';
-		freqcount[i]++;
-		msgsize++;
-	}
-	for(i = 0; i < EN_ALPH_SIZE; i++)
-		freqcount[i] /= msgsize;
 }
 
 char
@@ -154,7 +163,7 @@ die(const char *errstr, ...) {
 void *
 xrealloc(void *p, size_t len) {
 	if((p = realloc(p, len)) == NULL)
-		die("Out of memory\n");
+		die("%s: could not realloc() %d bytes\n", argv0, len);
 
 	return p;
 }
@@ -164,14 +173,25 @@ xmalloc(size_t size) {
 	void *p = malloc(size);
 
 	if(!p)
-		die("Out of memory\n");
+		die("%s: could not malloc() %d bytes\n", argv0, size);
 
 	return p;
 }
 
+void *
+xcalloc(size_t nmemb, size_t size) {
+	void *p = calloc(nmemb, size);
+
+	if(!p)
+		die("%s: could not calloc() %d bytes\n", argv0, nmemb*size);
+
+	return p;
+}
+
+/* read input from stream into s, return bytes read */
 int
 getinput(char **s, FILE *stream){
-	int size = INIT_SIZE/2;
+	int size = INIT_SIZE / 2;
 	int read = 0;
 	*s = NULL;
 
@@ -179,7 +199,6 @@ getinput(char **s, FILE *stream){
 		if(read + INIT_SIZE > size){
 			size *= 2;
 			*s = xrealloc(*s, size);
-			printf("size = %d", size);
 		}
 		if(fgets(*s + read, INIT_SIZE, stream) == NULL)
 			break;
@@ -187,6 +206,7 @@ getinput(char **s, FILE *stream){
 		if((*s)[read - 1] == '\n')
 			break;
 	}
+
 	return read;
 }
 
@@ -235,5 +255,7 @@ main(int argc, char *argv[]){
 		usage();
 	}
 
+	free(plaintext);
+	free(message);
 	return EXIT_SUCCESS;
 }
